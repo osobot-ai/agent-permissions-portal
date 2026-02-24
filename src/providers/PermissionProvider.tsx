@@ -6,37 +6,32 @@ import {
   useState,
   useCallback,
 } from "react";
+import { Hex } from "viem";
 import { RequestExecutionPermissionsReturnType } from "@metamask/smart-accounts-kit/actions";
+import { type Delegation, getDelegationHash, storeDelegation } from "@/lib/storage";
 
 export type Permission = NonNullable<RequestExecutionPermissionsReturnType>[number];
 
-interface DelegationFile {
-  version: string;
-  delegations: Array<{
-    hash: string;
-    delegation: Record<string, unknown>;
-  }>;
+interface StoredDelegationInfo {
+  hash: Hex;
+  delegation: Delegation;
 }
 
 interface PermissionContextType {
   permission: Permission | null;
-  delegationFile: DelegationFile | null;
-  savedPath: string | null;
+  storedDelegations: StoredDelegationInfo[];
   isSaving: boolean;
   saveError: string | null;
   savePermission: (permission: Permission) => Promise<void>;
-  fetchPermission: () => Permission | null;
   removePermission: () => void;
 }
 
 export const PermissionContext = createContext<PermissionContextType>({
   permission: null,
-  delegationFile: null,
-  savedPath: null,
+  storedDelegations: [],
   isSaving: false,
   saveError: null,
   savePermission: async () => {},
-  fetchPermission: () => null,
   removePermission: () => {},
 });
 
@@ -46,8 +41,7 @@ export const PermissionProvider = ({
   children: React.ReactNode;
 }) => {
   const [permission, setPermission] = useState<Permission | null>(null);
-  const [delegationFile, setDelegationFile] = useState<DelegationFile | null>(null);
-  const [savedPath, setSavedPath] = useState<string | null>(null);
+  const [storedDelegations, setStoredDelegations] = useState<StoredDelegationInfo[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -56,68 +50,54 @@ export const PermissionProvider = ({
     setIsSaving(true);
     setSaveError(null);
 
+    const apiKey = process.env.NEXT_PUBLIC_STORAGE_API_KEY;
+    const apiKeyId = process.env.NEXT_PUBLIC_STORAGE_API_KEY_ID;
+
+    if (!apiKey || !apiKeyId) {
+      setSaveError("Storage API credentials not configured. Set NEXT_PUBLIC_STORAGE_API_KEY and NEXT_PUBLIC_STORAGE_API_KEY_ID in .env.local");
+      setIsSaving(false);
+      return;
+    }
+
     try {
-      // Try to decode delegations from the permission context
-      // The context field contains encoded delegations from the 7715 response
-      let delegationData: DelegationFile;
+      // Decode delegations from the permission context
+      let delegations: Delegation[];
 
       try {
-        // Try importing decodeDelegations and getDelegationHashOffchain
         const utils = await import("@metamask/smart-accounts-kit/utils");
-        const { decodeDelegations, getDelegationHashOffchain } = utils;
-
-        const delegations = decodeDelegations(perm.context);
-
-        delegationData = {
-          version: "0x1",
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          delegations: delegations.map((d: any) => ({
-            hash: getDelegationHashOffchain(d),
-            delegation: d,
-          })),
-        };
+        const decoded = utils.decodeDelegations(perm.context);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        delegations = decoded as any as Delegation[];
       } catch {
-        // If decodeDelegations is not available in this version,
-        // fall back to saving the raw permission context
-        console.warn("decodeDelegations not available, saving raw permission data");
-        delegationData = {
-          version: "0x1",
-          delegations: [{
-            hash: "0x0",
-            delegation: perm as unknown as Record<string, unknown>,
-          }],
-        };
+        console.warn("decodeDelegations not available, attempting to parse context directly");
+        // If decodeDelegations isn't available, try parsing the context as JSON
+        try {
+          const parsed = JSON.parse(perm.context);
+          delegations = Array.isArray(parsed) ? parsed : [parsed];
+        } catch {
+          throw new Error("Could not decode delegations from permission context");
+        }
       }
 
-      setDelegationFile(delegationData);
-
-      // Save to disk via API route
-      const res = await fetch("/api/save-delegation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(delegationData),
-      });
-
-      const result = await res.json();
-      if (result.success) {
-        setSavedPath(result.path);
-      } else {
-        setSaveError(result.error || "Failed to save delegation");
+      // Store each delegation in the storage service
+      const stored: StoredDelegationInfo[] = [];
+      for (const delegation of delegations) {
+        const hash = await storeDelegation(delegation, apiKey, apiKeyId);
+        stored.push({ hash, delegation });
       }
+
+      setStoredDelegations(stored);
     } catch (error) {
-      console.error("Error saving delegation:", error);
-      setSaveError(String(error));
+      console.error("Error storing delegation:", error);
+      setSaveError(error instanceof Error ? error.message : String(error));
     } finally {
       setIsSaving(false);
     }
   }, []);
 
-  const fetchPermission = () => permission;
-
   const removePermission = () => {
     setPermission(null);
-    setDelegationFile(null);
-    setSavedPath(null);
+    setStoredDelegations([]);
     setSaveError(null);
   };
 
@@ -125,12 +105,10 @@ export const PermissionProvider = ({
     <PermissionContext.Provider
       value={{
         permission,
-        delegationFile,
-        savedPath,
+        storedDelegations,
         isSaving,
         saveError,
         savePermission,
-        fetchPermission,
         removePermission,
       }}
     >

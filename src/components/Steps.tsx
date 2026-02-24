@@ -12,7 +12,7 @@ import { Loader2 } from "lucide-react";
 export default function Steps() {
   const [step, setStep] = useState<number>(1);
   const { agentAddress } = useAgentConfig();
-  const { permission, savedPath, isSaving, saveError } = usePermissions();
+  const { permission, storedDelegations, isSaving, saveError } = usePermissions();
   const { chain } = useChain();
 
   useEffect(() => {
@@ -85,7 +85,7 @@ export default function Steps() {
               your behalf. MetaMask will prompt you to approve.
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              The delegation will be saved locally for your agent to redeem via gator-cli.
+              The delegation will be stored in the delegation storage service for your agent to redeem via gator-cli.
             </p>
           </div>
           <GrantPermissionsButton />
@@ -97,17 +97,17 @@ export default function Steps() {
           {isSaving && (
             <div className="flex items-center justify-center gap-3 p-6">
               <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-              <span className="text-gray-600 dark:text-gray-300">Saving delegation to disk...</span>
+              <span className="text-gray-600 dark:text-gray-300">Storing delegation in storage service...</span>
             </div>
           )}
 
           {saveError && (
             <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-600 p-4 rounded-lg text-red-700 dark:text-red-300">
-              Error saving delegation: {saveError}
+              Error storing delegation: {saveError}
             </div>
           )}
 
-          {savedPath && <DelegationSaved filePath={savedPath} />}
+          {storedDelegations.length > 0 && <DelegationSaved delegations={storedDelegations} />}
         </div>
       )}
     </div>
