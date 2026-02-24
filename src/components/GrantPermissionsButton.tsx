@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { parseEther } from "viem";
+import { parseUnits } from "viem";
 import { erc7715ProviderActions } from "@metamask/smart-accounts-kit/actions";
 import { useSessionAccount } from "@/providers/SessionAccountProvider";
 import { usePermissions } from "@/providers/PermissionProvider";
 import { Loader2, CheckCircle } from "lucide-react";
 import Button from "@/components/Button";
 import { useChainId, useWalletClient } from "wagmi";
+
+// USDC on Sepolia
+const USDC_ADDRESS = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
 
 export default function GrantPermissionsButton() {
   const { sessionAccount } = useSessionAccount();
@@ -18,23 +21,6 @@ export default function GrantPermissionsButton() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isAdjustmentAllowed, setIsAdjustmentAllowed] = useState<boolean>(true);
 
-  /**
-   * Handles the permission granting process for native token periodic transfer.
-   *
-   * This function:
-   * 1. Creates a Viem client with ERC-7715 provider actions
-   * 2. Sets up permission parameters including:
-   *    - Chain ID (Sepolia testnet)
-   *    - Expiry time (24 hours from current time)
-   *    - Signer details (delegate smart account)
-   *    - Native token periodic transfer permission configuration
-   * 3. Grants the permissions through the MetaMask snap
-   * 4. Stores the granted permissions using the PermissionProvider
-   * 5. Updates the application step
-   *
-   * @throws {Error} If delegate smart account is not found
-   * @async
-   */
   const handleGrantPermissions = async () => {
     if (!sessionAccount) {
       throw new Error("Session account not found");
@@ -49,31 +35,28 @@ export default function GrantPermissionsButton() {
     try {
       const client = walletClient.extend(erc7715ProviderActions());
       const currentTime = Math.floor(Date.now() / 1000);
-      // 30 days in seconds
+      // 30 days
       const expiry = currentTime + 24 * 60 * 60 * 30;
 
       const permissions = await client.requestExecutionPermissions([{
         chainId,
         expiry,
-        signer: {
-          type: "account",
+        // SAK 0.4.0-beta.1 uses `to` instead of `signer`
+        to: sessionAccount.address,
+        permission: {
+          type: "erc20-token-periodic",
           data: {
-            address: sessionAccount.address,
+            tokenAddress: USDC_ADDRESS,
+            // 10 USDC (6 decimals)
+            periodAmount: parseUnits("10", 6),
+            // 1 day in seconds
+            periodDuration: 86400,
+            justification: "Permission for AI agent to spend up to 10 USDC per day",
           },
         },
         isAdjustmentAllowed,
-        permission: {
-          type: "native-token-periodic",
-          data: {
-            // 0.001 ETH in WEI format.
-            periodAmount: parseEther("0.001"),
-            // 1 day in seconds
-            periodDuration: 86400,
-            justification: "Permission to transfer 0.001 ETH every day",
-          },
-        },
       }]);
-      savePermission(permissions[0]);
+      await savePermission(permissions[0]);
     } catch (error) {
       console.error('Error granting permissions:', error);
     } finally {
@@ -92,7 +75,7 @@ export default function GrantPermissionsButton() {
           className="w-4 h-4 rounded border-gray-300"
         />
         <label htmlFor="adjustment-allowed" className="text-sm font-medium">
-          Allow adjustment for requested permission.
+          Allow user to adjust the requested permission amount
         </label>
       </div>
       <Button
@@ -101,13 +84,11 @@ export default function GrantPermissionsButton() {
         disabled={isLoading}
       >
         <span>
-          {isLoading && "Granting Permissions..."}
-          {!isLoading && "Grant Permissions"}
+          {isLoading ? "Requesting Permissions..." : "Grant USDC Permission to Agent"}
         </span>
-        {isLoading && (
+        {isLoading ? (
           <Loader2 className="h-5 w-5 animate-spin" />
-        )}
-        {!isLoading && (
+        ) : (
           <CheckCircle className="h-5 w-5" />
         )}
       </Button>

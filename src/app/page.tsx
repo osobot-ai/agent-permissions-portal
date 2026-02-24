@@ -12,8 +12,8 @@ export default function Home() {
       <main className="container mx-auto px-4 py-8 max-w-4xl flex-1">
         <Hero />
         <WalletInfoContainer />
-        <PermissionInfo />
         <Steps />
+        <PermissionInfo />
       </main>
       <Footer />
     </div>

@@ -11,16 +11,16 @@ export default function Footer() {
           className="flex items-center space-x-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors duration-200 hover:underline hover:underline-offset-4"
         >
           <File className="h-4 w-4" />
-          <span>Docs</span>
+          <span>SAK Docs</span>
         </a>
         <a
-          href="https://github.com/metamask/gator-examples"
+          href="https://eips.ethereum.org/EIPS/eip-7715"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center space-x-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors duration-200 hover:underline hover:underline-offset-4"
         >
           <Code2 className="h-4 w-4" />
-          <span>Examples</span>
+          <span>ERC-7715</span>
         </a>
       </div>
     </footer>

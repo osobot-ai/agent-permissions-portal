@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MetaMask Advanced Permissions (ERC-7715)",
-  description: "A dApp to test the MetaMask Advanced Permissions (ERC-7715) implementation",
+  title: "Agent Permissions Portal — ERC-7715",
+  description: "Grant your AI agent scoped permissions via MetaMask Smart Accounts",
 };
 
 export default function RootLayout({
