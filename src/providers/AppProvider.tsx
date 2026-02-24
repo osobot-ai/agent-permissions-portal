@@ -1,37 +1,45 @@
 "use client";
 
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createConfig, http, WagmiProvider } from "wagmi";
-import { sepolia } from "viem/chains";
-import { ReactNode } from "react";
-import { metaMask } from "wagmi/connectors";
+import { ReactNode, createContext, useContext, useState, useEffect } from "react";
+import { Chain } from "viem";
+import { base, sepolia, baseSepolia } from "viem/chains";
 import { PermissionProvider } from "@/providers/PermissionProvider";
-import { SessionAccountProvider } from "./SessionAccountProvider";
+import { AgentConfigProvider } from "@/providers/SessionAccountProvider";
 
-export const connectors = [metaMask()];
+const CHAINS: Record<string, Chain> = {
+  base,
+  sepolia,
+  "base-sepolia": baseSepolia,
+};
 
-const queryClient = new QueryClient();
+const DEFAULT_CHAIN = base;
 
-export const wagmiConfig = createConfig({
-    chains: [sepolia],
-    connectors,
-    multiInjectedProviderDiscovery: false,
-    ssr: true,
-    transports: {
-        [sepolia.id]: http(process.env.NEXT_PUBLIC_RPC_URL),
-    },
-});
+interface ChainContextType {
+  chain: Chain;
+}
+
+const ChainContext = createContext<ChainContextType>({ chain: DEFAULT_CHAIN });
+
+export const useChain = () => useContext(ChainContext);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-    return (
-        <QueryClientProvider client={queryClient}>
-            <WagmiProvider config={wagmiConfig}>
-                <SessionAccountProvider>
-                    <PermissionProvider>
-                        {children}
-                    </PermissionProvider>
-                </SessionAccountProvider>
-            </WagmiProvider>
-        </QueryClientProvider>
-    );
+  const [chain, setChain] = useState<Chain>(DEFAULT_CHAIN);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const chainParam = params.get("chain")?.toLowerCase();
+    if (chainParam && CHAINS[chainParam]) {
+      setChain(CHAINS[chainParam]);
+    }
+  }, []);
+
+  return (
+    <ChainContext.Provider value={{ chain }}>
+      <AgentConfigProvider>
+        <PermissionProvider>
+          {children}
+        </PermissionProvider>
+      </AgentConfigProvider>
+    </ChainContext.Provider>
+  );
 }

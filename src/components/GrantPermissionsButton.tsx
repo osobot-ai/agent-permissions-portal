@@ -1,64 +1,65 @@
 "use client";
 
 import { useState } from "react";
-import { parseUnits } from "viem";
+import { createWalletClient, custom, parseUnits } from "viem";
 import { erc7715ProviderActions } from "@metamask/smart-accounts-kit/actions";
-import { useSessionAccount } from "@/providers/SessionAccountProvider";
+import { useAgentConfig } from "@/providers/SessionAccountProvider";
 import { usePermissions } from "@/providers/PermissionProvider";
+import { useChain } from "@/providers/AppProvider";
 import { Loader2, CheckCircle } from "lucide-react";
 import Button from "@/components/Button";
-import { useChainId, useWalletClient } from "wagmi";
-
-// USDC on Sepolia
-const USDC_ADDRESS = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
 
 export default function GrantPermissionsButton() {
-  const { agentAddress } = useSessionAccount();
+  const { agentAddress, tokenAddress } = useAgentConfig();
   const { savePermission } = usePermissions();
-  const { data: walletClient } = useWalletClient();
-  const chainId = useChainId();
+  const { chain } = useChain();
 
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isAdjustmentAllowed, setIsAdjustmentAllowed] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isAdjustmentAllowed, setIsAdjustmentAllowed] = useState(true);
 
   const handleGrantPermissions = async () => {
     if (!agentAddress) {
-      throw new Error("Agent address not set");
+      setError("Agent address not set");
+      return;
     }
 
-    if (!walletClient) {
-      throw new Error("Wallet client not connected");
+    if (typeof window === "undefined" || !window.ethereum) {
+      setError("MetaMask not detected. Please install MetaMask.");
+      return;
     }
 
     setIsLoading(true);
+    setError(null);
 
     try {
-      const client = walletClient.extend(erc7715ProviderActions());
-      const currentTime = Math.floor(Date.now() / 1000);
-      // 30 days
-      const expiry = currentTime + 24 * 60 * 60 * 30;
+      const walletClient = createWalletClient({
+        chain,
+        transport: custom(window.ethereum),
+      }).extend(erc7715ProviderActions());
 
-      const permissions = await client.requestExecutionPermissions([{
-        chainId,
+      const currentTime = Math.floor(Date.now() / 1000);
+      const expiry = currentTime + 24 * 60 * 60 * 30; // 30 days
+
+      const permissions = await walletClient.requestExecutionPermissions([{
+        chainId: chain.id,
         expiry,
-        // The agent's gator-cli address is the delegate
         to: agentAddress,
         permission: {
           type: "erc20-token-periodic",
           data: {
-            tokenAddress: USDC_ADDRESS,
-            // 10 USDC (6 decimals)
+            tokenAddress,
             periodAmount: parseUnits("10", 6),
-            // 1 day in seconds
             periodDuration: 86400,
-            justification: "Permission for AI agent to spend up to 10 USDC per day",
+            justification: `Permission for AI agent to spend tokens daily`,
           },
         },
         isAdjustmentAllowed,
       }]);
       await savePermission(permissions[0]);
-    } catch (error) {
-      console.error('Error granting permissions:', error);
+    } catch (err) {
+      console.error("Error granting permissions:", err);
+      setError(err instanceof Error ? err.message : "Failed to grant permissions");
     } finally {
       setIsLoading(false);
     }
@@ -78,13 +79,20 @@ export default function GrantPermissionsButton() {
           Allow user to adjust the requested permission amount
         </label>
       </div>
+
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-600 p-3 rounded-lg text-sm text-red-700 dark:text-red-300">
+          {error}
+        </div>
+      )}
+
       <Button
         className="w-full space-x-2"
         onClick={handleGrantPermissions}
         disabled={isLoading}
       >
         <span>
-          {isLoading ? "Requesting Permissions..." : "Grant USDC Permission to Agent"}
+          {isLoading ? "Requesting Permissions..." : "Grant Token Permission to Agent"}
         </span>
         {isLoading ? (
           <Loader2 className="h-5 w-5 animate-spin" />

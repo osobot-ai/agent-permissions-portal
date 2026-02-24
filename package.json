@@ -1,5 +1,5 @@
 {
-  "name": "advanced-permissions-example",
+  "name": "agent-permissions-portal",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -11,14 +11,11 @@
   "dependencies": {
     "@metamask/smart-accounts-kit": "^0.4.0-beta.1",
     "@tailwindcss/postcss": "^4.1.1",
-    "@tanstack/react-query": "^5.90.7",
     "lucide-react": "^0.487.0",
     "next": "15.4.10",
-    "permissionless": "^0.2.46",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "viem": "^2.38.6",
-    "wagmi": "^2.19.2"
+    "viem": "^2.38.6"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
