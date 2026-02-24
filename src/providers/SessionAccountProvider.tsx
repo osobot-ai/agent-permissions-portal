@@ -1,25 +1,17 @@
 "use client";
 
-import {
-  Implementation,
-  MetaMaskSmartAccount,
-  toMetaMaskSmartAccount,
-} from "@metamask/smart-accounts-kit";
 import { createContext, useState, useContext } from "react";
-import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
-import { usePublicClient } from "wagmi";
+import { Address, isAddress } from "viem";
 
-interface SessionAccountContext {
-  sessionAccount: MetaMaskSmartAccount | null,
-  createSessionAccount: () => Promise<void>,
-  isLoading: boolean,
-  error: string | null,
+interface AgentAddressContext {
+  agentAddress: Address | null;
+  setAgentAddress: (address: string) => boolean;
+  error: string | null;
 }
 
-export const SessionAccountContext = createContext<SessionAccountContext>({
-  sessionAccount: null,
-  createSessionAccount: async () => { },
-  isLoading: false,
+export const AgentAddressContext = createContext<AgentAddressContext>({
+  agentAddress: null,
+  setAgentAddress: () => false,
   error: null,
 });
 
@@ -28,53 +20,32 @@ export const SessionAccountProvider = ({
 }: {
   children: React.ReactNode;
 }) => {
-  const [sessionAccount, setSessionAccount] = useState<MetaMaskSmartAccount | null>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [agentAddress, setAddress] = useState<Address | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const publicClient = usePublicClient();
 
-  const createSessionAccount = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      if (!publicClient) {
-        throw new Error("Public client not found");
-      }
-
-      const account = privateKeyToAccount(generatePrivateKey());
-
-      const newSessionAccount = await toMetaMaskSmartAccount({
-        client: publicClient,
-        implementation: Implementation.Hybrid,
-        deployParams: [account.address, [], [], []],
-        deploySalt: "0x",
-        signer: { account },
-      });
-
-      setSessionAccount(newSessionAccount);
-    } catch (err) {
-      console.error("Error creating a session account:", err);
-      setError(err instanceof Error ? err.message : "Failed to create a session account");
-    } finally {
-      setIsLoading(false);
+  const setAgentAddress = (input: string): boolean => {
+    setError(null);
+    if (!input.trim()) {
+      setError("Address is required");
+      return false;
     }
+    if (!isAddress(input.trim())) {
+      setError("Invalid Ethereum address");
+      return false;
+    }
+    setAddress(input.trim() as Address);
+    return true;
   };
 
   return (
-    <SessionAccountContext.Provider
-      value={{
-        sessionAccount,
-        createSessionAccount,
-        isLoading,
-        error,
-      }}
+    <AgentAddressContext.Provider
+      value={{ agentAddress, setAgentAddress, error }}
     >
       {children}
-    </SessionAccountContext.Provider>
+    </AgentAddressContext.Provider>
   );
 };
 
 export const useSessionAccount = () => {
-  return useContext(SessionAccountContext);
+  return useContext(AgentAddressContext);
 };

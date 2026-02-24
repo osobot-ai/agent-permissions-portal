@@ -13,7 +13,7 @@ import { useChainId, useWalletClient } from "wagmi";
 const USDC_ADDRESS = "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238";
 
 export default function GrantPermissionsButton() {
-  const { sessionAccount } = useSessionAccount();
+  const { agentAddress } = useSessionAccount();
   const { savePermission } = usePermissions();
   const { data: walletClient } = useWalletClient();
   const chainId = useChainId();
@@ -22,8 +22,8 @@ export default function GrantPermissionsButton() {
   const [isAdjustmentAllowed, setIsAdjustmentAllowed] = useState<boolean>(true);
 
   const handleGrantPermissions = async () => {
-    if (!sessionAccount) {
-      throw new Error("Session account not found");
+    if (!agentAddress) {
+      throw new Error("Agent address not set");
     }
 
     if (!walletClient) {
@@ -41,8 +41,8 @@ export default function GrantPermissionsButton() {
       const permissions = await client.requestExecutionPermissions([{
         chainId,
         expiry,
-        // SAK 0.4.0-beta.1 uses `to` instead of `signer`
-        to: sessionAccount.address,
+        // The agent's gator-cli address is the delegate
+        to: agentAddress,
         permission: {
           type: "erc20-token-periodic",
           data: {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ConnectButton from "@/components/ConnectButton";
-import CreateSessionAccountButton from "@/components/CreateSessionAccount";
+import SetAgentAddress from "@/components/CreateSessionAccount";
 import GrantPermissionsButton from "./GrantPermissionsButton";
 import DelegationSaved from "./DelegationSaved";
 import { useSessionAccount } from "@/providers/SessionAccountProvider";
@@ -12,7 +12,7 @@ import { Loader2 } from "lucide-react";
 
 export default function Steps() {
   const [step, setStep] = useState<number>(1);
-  const { sessionAccount } = useSessionAccount();
+  const { agentAddress } = useSessionAccount();
   const { permission, savedPath, isSaving, saveError } = usePermissions();
   const { isConnected, chainId: connectedChainId } = useAccount();
   const currentChainId = useChainId();
@@ -23,36 +23,44 @@ export default function Steps() {
       return;
     }
 
-    if (permission && sessionAccount) {
+    if (permission && agentAddress) {
       setStep(4);
-    } else if (sessionAccount) {
+    } else if (agentAddress) {
       setStep(3);
     } else if (isConnected && connectedChainId === currentChainId) {
       setStep(2);
     } else {
       setStep(1);
     }
-  }, [sessionAccount, permission, isConnected, connectedChainId, currentChainId]);
+  }, [agentAddress, permission, isConnected, connectedChainId, currentChainId]);
 
   return (
     <div className="max-w-4xl mx-auto p-3 space-y-8">
       {/* Step indicators */}
       <div className="flex items-center justify-center gap-2 mb-4">
-        {[1, 2, 3, 4].map((s) => (
-          <div key={s} className="flex items-center gap-2">
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                s <= step
-                  ? "bg-blue-500 text-white"
-                  : "bg-gray-200 dark:bg-gray-700 text-gray-500"
-              }`}
-            >
-              {s}
-            </div>
-            {s < 4 && (
+        {[
+          { n: 1, label: "Connect" },
+          { n: 2, label: "Agent" },
+          { n: 3, label: "Grant" },
+          { n: 4, label: "Done" },
+        ].map(({ n, label }) => (
+          <div key={n} className="flex items-center gap-2">
+            <div className="flex flex-col items-center gap-1">
               <div
-                className={`w-8 h-0.5 ${
-                  s < step ? "bg-blue-500" : "bg-gray-200 dark:bg-gray-700"
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                  n <= step
+                    ? "bg-blue-500 text-white"
+                    : "bg-gray-200 dark:bg-gray-700 text-gray-500"
+                }`}
+              >
+                {n}
+              </div>
+              <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
+            </div>
+            {n < 4 && (
+              <div
+                className={`w-8 h-0.5 mb-5 ${
+                  n < step ? "bg-blue-500" : "bg-gray-200 dark:bg-gray-700"
                 }`}
               />
             )}
@@ -84,11 +92,11 @@ export default function Steps() {
         <div className="space-y-6 flex flex-col gap-4 items-center justify-center">
           <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-6 shadow-lg border border-gray-200 dark:border-gray-700 max-w-lg text-center">
             <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-              Create a session account for your AI agent. This is the account that will receive
-              the delegated permissions.
+              Enter your agent&apos;s wallet address. This is the account that will receive
+              the delegated permissions and can redeem them via gator-cli.
             </p>
           </div>
-          <CreateSessionAccountButton />
+          <SetAgentAddress />
         </div>
       )}
 
